@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>赛博博饼</title>
+<style>
+html,body{margin:0;padding:0;background:#0b0f14;color:#e9f1ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+.card{background:#121821;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+h1{margin:0 0 8px;font-size:22px}
+.muted{color:#9fb2ce}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+button{background:#1d2633;color:#e9f1ff;border:1px solid #2a3a52;border-radius:12px;padding:10px 14px;font-size:15px}
+button.primary{background:#56b6f7;color:#071521;border:none}
+button:active{transform:translateY(1px)}
+.log{min-height:44vh;white-space:pre-wrap;line-height:1.65}
+.dice{font-size:28px;margin-top:8px}
+.controls{display:flex;align-items:center;gap:10px;margin:6px 0 10px}
+input[type=range]{width:160px}
+.chip{display:inline-block;background:#1a2433;border:1px solid #2a3a52;border-radius:999px;padding:6px 10px;font-size:12px}
+.footer{margin-top:10px;font-size:12px;color:#9fb2ce}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>🎲 赛博博饼</h1>
+    <div class="controls">
+      <span class="chip">逐字速度</span>
+      <input id="speed" type="range" min="10" max="150" value="80"/>
+      <span class="muted" id="speedLabel">80ms/字</span>
+    </div>
+    <div id="log" class="log"></div>
+    <div id="dice" class="dice"></div>
+    <div id="actions" class="row"></div>
+    <div class="footer">Made by AmoyLang &amp; 2017 Dreamer</div>
+  </div>
+</div>
+<script>
+const logEl=document.getElementById('log');
+const diceEl=document.getElementById('dice');
+const actionsEl=document.getElementById('actions');
+const speedEl=document.getElementById('speed');
+const speedLabel=document.getElementById('speedLabel');
+let delayPerChar=Number(speedEl.value);
+speedEl.addEventListener('input',()=>{delayPerChar=Number(speedEl.value);speedLabel.textContent=delayPerChar+"ms/字";});
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function slowPrint(text,delay){let d=delay??delayPerChar;if(logEl.textContent.length>0&&!logEl.textContent.endsWith("\n"))logEl.textContent+="\n";for(const ch of text){logEl.textContent+=ch;logEl.scrollTop=logEl.scrollHeight;await sleep(d);}logEl.textContent+="\n";}
+function clearUI(){diceEl.textContent='';actionsEl.innerHTML='';}
+function btn(label,primary){const b=document.createElement('button');b.textContent=label;if(primary)b.classList.add('primary');return b;}
+function ask(opts){return new Promise(res=>{actionsEl.innerHTML='';opts.forEach(o=>{const b=btn(o.label,o.primary);b.onclick=()=>{actionsEl.innerHTML='';res(o.value);};actionsEl.appendChild(b);});});}
+function shakeDice(){return Array.from({length:6},()=>Math.floor(Math.random()*6)+1);}
+function judge(r){const m=new Map();r.forEach(v=>m.set(v,(m.get(v)||0)+1));const c=n=>m.get(n)||0;const c1=c(1),c4=c(4),c5=c(5),c6=c(6);
+if([1,2,3,4,5,6].every(v=>c(v)===1))return "对堂！";
+if(c4===4&&r.filter(x=>x===1).length===2)return "状元插金花！WE ARE THE CHAMPIONS!!!";
+if(c4===6)return "六杯红！";
+if(c5>=5)return "五子登科！";
+if(c6===6)return "满堂黑！";
+if(c1===6)return "遍地锦！";
+if(c4===5){const other=r.find(x=>x!==4);return "状元带"+(other+4);}
+if(c4===4){const others=r.filter(x=>x!==4);return "状元带"+(others[0]+others[1]);}
+if(c4===3)return "三红！";
+for(const [k,v] of m.entries()){if(k!==4&&v>=4)return "四进。";}
+if(c4===2)return "二举。";
+if(c4===1)return "只是一秀。";
+return "啥也不是。";}
+const diceSymbols=["⚀","⚁","⚂","⚃","⚄","⚅"];
+async function playOneRound(){clearUI();await slowPrint("好的，这就为你摇骰子。（点“开始”）");await ask([{label:"开始",value:"go",primary:true}]);
+while(true){const r=shakeDice();diceEl.textContent=r.map(n=>diceSymbols[n-1]).join("  ");await slowPrint("很好，你摇到了："+r.join("、"));
+const need=await ask([{label:"需要帮忙判定（扣1）",value:"1",primary:true},{label:"不用了我会（其他）",value:"0"}]);
+if(need==="1"){await slowPrint(judge(r));}else{await slowPrint("好的，你知道规则，或许你是老乡？");}
+const again=await ask([{label:"再次摇骰子（扣1继续）",value:"1",primary:true},{label:"结束本局",value:"0"}]);
+if(again!=="1"){await slowPrint("感谢参与，不管今天是不是中秋，都祝你圆圆满满。",delayPerChar+120);return;}}}
+async function showRules(){clearUI();
+const lines=["博饼是厦门人中秋玩的游戏。","泥需要将双手并拢，摇六颗骰子,","然后咣当一声，把它们丢进碗里。","不过我们《赛博博饼》专栏，主打一个没手就能玩。","(是吧，哪怕泥是一只端午剩下的碱水粽子。)","python会替泥随机生成六个点数。","六颗骰子的点数会组成各种排列组合。","摇到特定的组合即会获奖。","假如泥不太清楚‘特定的组合’是什么，","没有关系，因为这个程序是个厦门人写的。","她特地写了个 ‘judge’ 函数，帮泥自动判定结果。","放心，我们不会漏掉任何一个‘状元’。笑。"];
+for(const l of lines){await slowPrint(l);}
+const want=await ask([{label:"想看底层逻辑（扣1）",value:"1",primary:true},{label:"略过直接来一局",value:"0"}]);
+if(want==="1"){const more=["我来跟泥说说‘judge’是怎么运作的。","在博饼的规则里，‘4’这个点数特别关键。","只要六个骰子里出现一个 4，就是【一秀】","两个 4 → 【二举】","三个 4 → 【三红】","如果有四个相同点数，就是【四进】","例如，4个1，4个2...","但如果是 4 个 4，那就是【状元】","要不要算算摇出状元的概率？","开玩笑的。我讨厌数学。","其实还有一些特别的组合，也能算作状元。","而且我们还有一套规则来比较不同状元的大小。","都写在‘judge’里了。哈哈。","泥要是有兴趣，可以去翻翻看。","祝泥成为今年最大的状元。"];for(const l of more){await slowPrint(l,delayPerChar);}}
+const go=await ask([{label:"那我们现在就来一局试试？（来的话扣1）",value:"1",primary:true},{label:"先不玩，回菜单",value:"0"}]);if(go==="1")await playOneRound();}
+async function mainMenu(){logEl.textContent="";await slowPrint("欢迎来到《赛博博饼》");
+while(true){const pick=await ask([{label:"来一局（扣1）",value:"play",primary:true},{label:"查看规则（扣2）",value:"rules"},{label:"退出",value:"quit"}]);
+if(pick==="play"){await playOneRound();const e=await ask([{label:"退出程序（扣1）",value:"1"},{label:"回到开头",value:"0",primary:true}]);if(e==="1")break;}
+else if(pick==="rules"){await showRules();const e=await ask([{label:"退出程序（扣1）",value:"1"},{label:"回到开头",value:"0",primary:true}]);if(e==="1")break;}
+else{await slowPrint("好的。祝你生活愉快。");const e=await ask([{label:"退出程序（扣1）",value:"1",primary:true},{label:"回到开头",value:"0"}]);if(e==="1")break;}}}
+mainMenu();
+</script>
+</body>
+</html>
